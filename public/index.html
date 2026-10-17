@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vercel Manager</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; }
+  header { background: #111; padding: 16px 24px; border-bottom: 1px solid #222;
+           display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; }
+  .tabs { display: flex; gap: 4px; padding: 12px 24px; background: #111; border-bottom: 1px solid #222; }
+  .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-size: 14px; color: #888; }
+  .tab.active { background: #fff; color: #000; font-weight: 600; }
+  .tab:hover:not(.active) { background: #1a1a1a; color: #ccc; }
+  main { padding: 24px; max-width: 1200px; margin: auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  button { background: #fff; color: #000; border: none; padding: 8px 16px;
+           border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+  button:hover { background: #ccc; }
+  button.danger { background: #ef4444; color: #fff; }
+  button.danger:hover { background: #dc2626; }
+  button.small { padding: 4px 10px; font-size: 12px; }
+  input, select { background: #1a1a1a; border: 1px solid #333; color: #fff;
+                  padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none; }
+  input:focus, select:focus { border-color: #555; }
+  .row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .card { background: #111; border: 1px solid #222; border-radius: 8px;
+          padding: 16px; margin-bottom: 10px; }
+  .card h3 { font-size: 15px; margin-bottom: 6px; }
+  .card .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
+           font-size: 11px; font-weight: 600; margin-right: 6px; }
+  .badge.ready { background: #065f46; color: #6ee7b7; }
+  .badge.building { background: #854d0e; color: #fde047; }
+  .badge.error { background: #7f1d1d; color: #fca5a5; }
+  .badge.queued { background: #1e3a8a; color: #93c5fd; }
+  .empty { color: #666; text-align: center; padding: 40px; }
+  .loading { color: #888; text-align: center; padding: 20px; }
+  pre { background: #000; padding: 12px; border-radius: 6px; overflow-x: auto;
+        font-size: 12px; max-height: 400px; overflow-y: auto; color: #aaa; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.8);
+           display: none; align-items: center; justify-content: center; z-index: 99; }
+  .modal.open { display: flex; }
+  .modal-content { background: #111; border: 1px solid #333; border-radius: 8px;
+                   padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
+  .modal-content h2 { margin-bottom: 16px; font-size: 16px; }
+  #toast { position: fixed; bottom: 24px; right: 24px; background: #111;
+           border: 1px solid #333; padding: 12px 20px; border-radius: 8px;
+           opacity: 0; transition: opacity .3s; font-size: 14px; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>▲ Vercel Manager</h1>
+  <span id="userInfo" style="font-size:13px;color:#888"></span>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="projects">Projects</div>
+  <div class="tab" data-tab="deployments">Deployments</div>
+</div>
+
+<main>
+  <!-- PROJECTS -->
+  <div class="panel active" id="panel-projects">
+    <div class="row">
+      <input id="newProjName" placeholder="Project name (e.g. my-app)" />
+      <select id="newProjFramework">
+        <option value="">Auto-detect</option>
+        <option>nextjs</option><option>vite</option><option>create-react-app</option>
+        <option>node</option><option>express</option><option>static</option>
+      </select>
+      <button onclick="createProject()">+ Create Project</button>
+      <button onclick="loadProjects()">↻ Refresh</button>
+    </div>
+    <div id="projectsList" class="loading">Loading...</div>
+  </div>
+
+  <!-- DEPLOYMENTS -->
+  <div class="panel" id="panel-deployments">
+    <div class="row">
+      <button onclick="loadDeployments()">↻ Refresh</button>
+    </div>
+    <div id="deploymentsList" class="loading">Loading...</div>
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2 id="modalTitle"></h2>
+    <div id="modalBody"></div>
+    <div style="margin-top:16px;text-align:right">
+      <button onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+
+function toast(msg, isError = false) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.style.borderColor = isError ? "#ef4444" : "#333";
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    headers: { "Content-Type": "application/json" },
+    ...opts,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+function openModal(title, html) {
+  $("#modalTitle").textContent = title;
+  $("#modalBody").innerHTML = html;
+  $("#modal").classList.add("open");
+}
+function closeModal() { $("#modal").classList.remove("open"); }
+
+// Tabs
+document.querySelectorAll(".tab").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+    t.classList.add("active");
+    $("#panel-" + t.dataset.tab).classList.add("active");
+    if (t.dataset.tab === "projects") loadProjects();
+    if (t.dataset.tab === "deployments") loadDeployments();
+  };
+});
+
+// ---- USER ----
+async function loadUser() {
+  try {
+    const u = await api("/api/me");
+    $("#userInfo").textContent = `${u.username || u.email || "user"}`;
+  } catch {}
+}
+
+// ---- PROJECTS ----
+async function loadProjects() {
+  const list = $("#projectsList");
+  list.className = "loading";
+  list.textContent = "Loading...";
+  try {
+    const projects = await api("/api/projects");
+    if (!projects.length) {
+      list.className = "empty";
+      list.textContent = "No projects yet. Create one above.";
+      return;
+    }
+    list.className = "";
+    list.innerHTML = projects.map(p => `
+      <div class="card">
+        <h3>${escapeHtml(p.name)}</h3>
+        <div class="meta">
+          ${p.framework ? `Framework: ${p.framework} · ` : ""}
+          ID: ${p.id}
+        </div>
+        <div class="actions">
+          <button class="small" onclick="viewEnvVars('${p.id}','${escapeHtml(p.name)}')">Env Vars</button>
+          <button class="small" onclick="viewDomains('${p.id}','${escapeHtml(p.name)}')">Domains</button>
+          <button class="small danger" onclick="deleteProject('${p.id}','${escapeHtml(p.name)}')">Delete</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    list.className = "empty";
+    list.textContent = "Error: " + e.message;
+  }
+}
+
+async function createProject() {
+  const name = $("#newProjName").value.trim();
+  const framework = $("#newProjFramework").value;
+  if (!name) return toast("Enter project name", true);
+  try {
+    await api("/api/projects", {
+      method: "POST",
+      body: JSON.stringify({ name, framework: framework || undefined }),
+    });
+    $("#newProjName").value = "";
+    toast("Project created ✓");
+    loadProjects();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteProject(id, name) {
+  if (!confirm(`Delete project "${name}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/projects/${id}`, { method: "DELETE" });
+    toast("Project deleted");
+    loadProjects();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---- ENV VARS ----
+async function viewEnvVars(projectId, name) {
+  openModal(`Env Vars — ${name}`, `<div class="loading">Loading...</div>`);
+  try {
+    const envs = await api(`/api/projects/${projectId}/env`);
+    const rows = envs.length ? envs.map(e => `
+      <div class="card">
+        <h3>${escapeHtml(e.key)}</h3>
+        <div class="meta">Target: ${(e.target || []).join(", ")} · Type: ${e.type}</div>
+        <div class="actions">
+          <button class="small danger" onclick="deleteEnv('${projectId}','${e.id}','${escapeHtml(name)}')">Delete</button>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">No env vars</div>`;
+
+    openModal(`Env Vars — ${name}`, `
+      <div class="row">
+        <input id="envKey" placeholder="KEY" />
+        <input id="envValue" placeholder="value" />
+        <button onclick="addEnv('${projectId}','${escapeHtml(name)}')">+ Add</button>
+      </div>
+      ${rows}
+    `);
+  } catch (e) { openModal(`Env Vars — ${name}`, `<div class="empty">${e.message}</div>`); }
+}
+
+async function addEnv(projectId, name) {
+  const key = $("#envKey").value.trim();
+  const value = $("#envValue").value;
+  if (!key) return toast("Enter key", true);
+  try {
+    await api(`/api/projects/${projectId}/env`, {
+      method: "POST",
+      body: JSON.stringify({ key, value }),
+    });
+    toast("Env var added");
+    viewEnvVars(projectId, name);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function deleteEnv(projectId, envId, name) {
+  if (!confirm("Delete this env var?")) return;
+  try {
+    await api(`/api/projects/${projectId}/env/${envId}`, { method: "DELETE" });
+    toast("Env var deleted");
+    viewEnvVars(projectId, name);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---- DOMAINS ----
+async function viewDomains(projectId, name) {
+  openModal(`Domains — ${name}`, `<div class="loading">Loading...</div>`);
+  try {
+    const domains = await api(`/api/projects/${projectId}/domains`);
+    const rows = domains.length ? domains.map(d => `
+      <div class="card">
+        <h3>${escapeHtml(d.name)}</h3>
+        <div class="meta">Verified: ${d.verified ? "✓" : "✗"}</div>
+        <div class="actions">
+          <button class="small danger" onclick="removeDomain('${projectId}','${escapeHtml(d.name)}','${escapeHtml(name)}')">Remove</button>
+        </div>
+      </div>
+    `).join("") : `<div class="empty">No domains</div>`;
+
+    openModal(`Domains — ${name}`, `
+      <div class="row">
+        <input id="domainInput" placeholder="example.com" />
+        <button onclick="addDomain('${projectId}','${escapeHtml(name)}')">+ Add</button>
+      </div>
+      ${rows}
+    `);
+  } catch (e) { openModal(`Domains — ${name}`, `<div class="empty">${e.message}</div>`); }
+}
+
+async function addDomain(projectId, name) {
+  const domain = $("#domainInput").value.trim();
+  if (!domain) return toast("Enter domain", true);
+  try {
+    await api(`/api/projects/${projectId}/domains`, {
+      method: "POST",
+      body: JSON.stringify({ domain }),
+    });
+    toast("Domain added");
+    viewDomains(projectId, name);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function removeDomain(projectId, domain, name) {
+  if (!confirm(`Remove domain ${domain}?`)) return;
+  try {
+    await api(`/api/projects/${projectId}/domains/${domain}`, { method: "DELETE" });
+    toast("Domain removed");
+    viewDomains(projectId, name);
+  } catch (e) { toast(e.message, true); }
+}
+
+// ---- DEPLOYMENTS ----
+async function loadDeployments() {
+  const list = $("#deploymentsList");
+  list.className = "loading";
+  list.textContent = "Loading...";
+  try {
+    const deps = await api("/api/deployments");
+    if (!deps.length) {
+      list.className = "empty";
+      list.textContent = "No deployments yet.";
+      return;
+    }
+    list.className = "";
+    list.innerHTML = deps.map(d => `
+      <div class="card">
+        <h3>${escapeHtml(d.name)}</h3>
+        <div class="meta">
+          <span class="badge ${d.state}">${d.state}</span>
+          ${d.target || "preview"} · ${new Date(d.createdAt).toLocaleString()}
+          · ${d.url ? `<a href="https://${d.url}" target="_blank" style="color:#60a5fa">${d.url}</a>` : ""}
+        </div>
+        <div class="actions">
+          <button class="small" onclick="viewLogs('${d.uid}')">Logs</button>
+          ${d.state === "BUILDING" || d.state === "QUEUED"
+            ? `<button class="small danger" onclick="cancelDep('${d.uid}')">Cancel</button>`
+            : `<button class="small" onclick="redeploy('${d.uid}')">Redeploy</button>`}
+          <button class="small danger" onclick="deleteDep('${d.uid}')">Delete</button>
+        </div>
+      </div>
+    `).join("");
+  } catch (e) {
+    list.className = "empty";
+    list.textContent = "Error: " + e.message;
+  }
+}
+
+async function cancelDep(id) {
+  try { await api(`/api/deployments/${id}/cancel`, { method: "POST" }); toast("Cancelled"); loadDeployments(); }
+  catch (e) { toast(e.message, true); }
+}
+async function deleteDep(id) {
+  if (!confirm("Delete deployment?")) return;
+  try { await api(`/api/deployments/${id}`, { method: "DELETE" }); toast("Deleted"); loadDeployments(); }
+  catch (e) { toast(e.message, true); }
+}
+async function redeploy(id) {
+  try { await api(`/api/deployments/${id}/redeploy`, { method: "POST" }); toast("Redeploying..."); loadDeployments(); }
+  catch (e) { toast(e.message, true); }
+}
+async function viewLogs(id) {
+  openModal("Deployment Logs", `<div class="loading">Loading...</div>`);
+  try {
+    const logs = await api(`/api/deployments/${id}/logs`);
+    const events = (logs.events || []).map(e => e.text || JSON.stringify(e)).join("\n");
+    openModal("Deployment Logs", `<pre>${escapeHtml(events || "No logs")}</pre>`);
+  } catch (e) { openModal("Deployment Logs", `<div class="empty">${e.message}</div>`); }
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+// Init
+loadUser();
+loadProjects();
+</script>
+</body>
+</html>
