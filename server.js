@@ -30,14 +30,13 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    maxAge: 1000 * 60 * 60 * 24 * 7,
   },
 }));
 
 /* ---------------- BASIC AUTH ---------------- */
 function basicAuth(req, res, next) {
-  if (!BASIC_USER || !BASIC_PASS) return next(); // skip if not configured
-  // Skip auth for OAuth callback
+  if (!BASIC_USER || !BASIC_PASS) return next();
   if (req.path.startsWith("/auth/github/callback")) return next();
 
   const header = req.headers.authorization || "";
@@ -192,17 +191,17 @@ app.delete("/api/projects/:id", wrap(async (req, res) => {
 }));
 
 /* ============================================================
-   DEPLOY FROM GITHUB
+   DEPLOY FROM GITHUB  ← FIXED (repoId ab numeric)
    ============================================================ */
 app.post("/api/deploy/from-github", requireGH, wrap(async (req, res) => {
   const {
-    projectName,       // Vercel project name (new or existing)
-    framework,         // optional
-    repoFullName,      // "owner/repo"
-    branch,            // e.g. "main"
-    rootDirectory,     // optional, e.g. "apps/web"
-    envVars,           // optional: [{key, value, target?}]
-    createProject,     // boolean - create project first?
+    projectName,
+    framework,
+    repoFullName,
+    branch,
+    rootDirectory,
+    envVars,
+    createProject,
   } = req.body;
 
   if (!projectName || !repoFullName || !branch) {
@@ -211,39 +210,50 @@ app.post("/api/deploy/from-github", requireGH, wrap(async (req, res) => {
 
   const [owner, repo] = repoFullName.split("/");
 
-  // 1. Ensure Vercel project exists (or create)
+  // 1. GitHub se repo details fetch karo (numeric repoId ke liye)
+  const ghRepo = await github(`/repos/${owner}/${repo}`, req.session.ghToken);
+  const repoId = ghRepo.id;
+  if (!repoId) throw new Error("Could not get GitHub repo ID");
+
+  // 2. Ensure Vercel project exists (or create + link GitHub)
   let project;
   try {
-    const existing = await vercel(`/v9/projects/${encodeURIComponent(projectName)}`);
-    project = existing;
+    project = await vercel(`/v9/projects/${encodeURIComponent(projectName)}`);
   } catch (e) {
     if (!createProject) throw new Error("Project not found. Enable 'createProject' or create it first.");
     project = await vercel("/v11/projects", {
       method: "POST",
-      body: JSON.stringify({ name: projectName, framework: framework || undefined }),
+      body: JSON.stringify({
+        name: projectName,
+        framework: framework || undefined,
+        gitRepository: {
+          type: "github",
+          repo: repoFullName,
+        },
+      }),
     });
   }
 
-  // 2. Create deployment with gitSource
+  // 3. Create deployment with gitSource (repoId numeric)
   const deployBody = {
     name: projectName,
     project: project.id,
     target: "production",
     gitSource: {
       type: "github",
-      repoId: undefined,
+      repoId,
       ref: branch,
-      owner,
-      repo,
     },
   };
+
+  if (rootDirectory) deployBody.rootDirectory = rootDirectory;
 
   const deployment = await vercel("/v13/deployments", {
     method: "POST",
     body: JSON.stringify(deployBody),
   });
 
-  // 3. Add env vars if provided
+  // 4. Add env vars if provided
   if (Array.isArray(envVars) && envVars.length) {
     for (const ev of envVars) {
       if (!ev.key || ev.value === undefined) continue;
