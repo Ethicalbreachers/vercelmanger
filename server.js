@@ -191,7 +191,7 @@ app.delete("/api/projects/:id", wrap(async (req, res) => {
 }));
 
 /* ============================================================
-   DEPLOY FROM GITHUB  ← FIXED (repoId ab numeric)
+   DEPLOY FROM GITHUB  ← FIXED
    ============================================================ */
 app.post("/api/deploy/from-github", requireGH, wrap(async (req, res) => {
   const {
@@ -217,24 +217,28 @@ app.post("/api/deploy/from-github", requireGH, wrap(async (req, res) => {
 
   // 2. Ensure Vercel project exists (or create + link GitHub)
   let project;
+  let isNewProject = false;
   try {
     project = await vercel(`/v9/projects/${encodeURIComponent(projectName)}`);
   } catch (e) {
-    if (!createProject) throw new Error("Project not found. Enable 'createProject' or create it first.");
+    if (!createProject) {
+      throw new Error("Project not found. Enable 'createProject' or create it first.");
+    }
     project = await vercel("/v11/projects", {
       method: "POST",
       body: JSON.stringify({
         name: projectName,
-        framework: framework || undefined,
+        framework: framework || null,
         gitRepository: {
           type: "github",
           repo: repoFullName,
         },
       }),
     });
+    isNewProject = true;
   }
 
-  // 3. Create deployment with gitSource (repoId numeric)
+  // 3. Deployment payload with gitSource + projectSettings
   const deployBody = {
     name: projectName,
     project: project.id,
@@ -244,16 +248,26 @@ app.post("/api/deploy/from-github", requireGH, wrap(async (req, res) => {
       repoId,
       ref: branch,
     },
+    projectSettings: {
+      framework: framework || null,
+      buildCommand: null,
+      installCommand: null,
+      outputDirectory: null,
+      rootDirectory: rootDirectory || null,
+    },
   };
 
-  if (rootDirectory) deployBody.rootDirectory = rootDirectory;
+  // New project ke liye auto-detection confirmation skip karo
+  const deployPath = isNewProject
+    ? "/v13/deployments?skipAutoDetectionConfirmation=1"
+    : "/v13/deployments";
 
-  const deployment = await vercel("/v13/deployments", {
+  const deployment = await vercel(deployPath, {
     method: "POST",
     body: JSON.stringify(deployBody),
   });
 
-  // 4. Add env vars if provided
+  // 4. Env vars add karo agar diye hain
   if (Array.isArray(envVars) && envVars.length) {
     for (const ev of envVars) {
       if (!ev.key || ev.value === undefined) continue;
