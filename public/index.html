@@ -7,62 +7,91 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, -apple-system, sans-serif; background: #0a0a0a; color: #e5e5e5; }
-  header { background: #111; padding: 16px 24px; border-bottom: 1px solid #222;
-           display: flex; justify-content: space-between; align-items: center; }
-  header h1 { font-size: 18px; }
-  .tabs { display: flex; gap: 4px; padding: 12px 24px; background: #111; border-bottom: 1px solid #222; }
-  .tab { padding: 8px 16px; cursor: pointer; border-radius: 6px; font-size: 14px; color: #888; }
+  a { color: #60a5fa; }
+  header { background: #111; padding: 14px 24px; border-bottom: 1px solid #222;
+           display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; }
+  .gh-box { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #888; }
+  .gh-box .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+  .gh-box .dot.on { background: #22c55e; }
+  .tabs { display: flex; gap: 4px; padding: 12px 24px; background: #111; border-bottom: 1px solid #222; flex-wrap: wrap; }
+  .tab { padding: 8px 14px; cursor: pointer; border-radius: 6px; font-size: 14px; color: #888; }
   .tab.active { background: #fff; color: #000; font-weight: 600; }
   .tab:hover:not(.active) { background: #1a1a1a; color: #ccc; }
   main { padding: 24px; max-width: 1200px; margin: auto; }
   .panel { display: none; }
   .panel.active { display: block; }
-  button { background: #fff; color: #000; border: none; padding: 8px 16px;
+  button { background: #fff; color: #000; border: none; padding: 8px 14px;
            border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
   button:hover { background: #ccc; }
   button.danger { background: #ef4444; color: #fff; }
   button.danger:hover { background: #dc2626; }
+  button.gh { background: #238636; color: #fff; }
+  button.gh:hover { background: #2ea043; }
   button.small { padding: 4px 10px; font-size: 12px; }
-  input, select { background: #1a1a1a; border: 1px solid #333; color: #fff;
-                  padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none; }
-  input:focus, select:focus { border-color: #555; }
-  .row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input, select, textarea { background: #1a1a1a; border: 1px solid #333; color: #fff;
+                  padding: 8px 12px; border-radius: 6px; font-size: 14px; outline: none;
+                  font-family: inherit; }
+  input:focus, select:focus, textarea:focus { border-color: #555; }
+  textarea { width: 100%; min-height: 80px; resize: vertical; font-family: monospace; font-size: 12px; }
+  .row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
   .card { background: #111; border: 1px solid #222; border-radius: 8px;
-          padding: 16px; margin-bottom: 10px; }
+          padding: 14px; margin-bottom: 10px; }
   .card h3 { font-size: 15px; margin-bottom: 6px; }
   .card .meta { font-size: 12px; color: #888; margin-bottom: 10px; }
   .actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px;
            font-size: 11px; font-weight: 600; margin-right: 6px; }
-  .badge.ready { background: #065f46; color: #6ee7b7; }
-  .badge.building { background: #854d0e; color: #fde047; }
-  .badge.error { background: #7f1d1d; color: #fca5a5; }
-  .badge.queued { background: #1e3a8a; color: #93c5fd; }
-  .empty { color: #666; text-align: center; padding: 40px; }
-  .loading { color: #888; text-align: center; padding: 20px; }
+  .badge.READY { background: #065f46; color: #6ee7b7; }
+  .badge.BUILDING, .badge.QUEUED { background: #854d0e; color: #fde047; }
+  .badge.ERROR, .badge.CANCELED { background: #7f1d1d; color: #fca5a5; }
+  .badge.INITIALIZING { background: #1e3a8a; color: #93c5fd; }
+  .empty { color: #666; text-align: center; padding: 40px; font-size: 14px; }
+  .loading { color: #888; text-align: center; padding: 20px; font-size: 13px; }
   pre { background: #000; padding: 12px; border-radius: 6px; overflow-x: auto;
         font-size: 12px; max-height: 400px; overflow-y: auto; color: #aaa; }
-  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.8);
-           display: none; align-items: center; justify-content: center; z-index: 99; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.85);
+           display: none; align-items: center; justify-content: center; z-index: 99; padding: 20px; }
   .modal.open { display: flex; }
-  .modal-content { background: #111; border: 1px solid #333; border-radius: 8px;
-                   padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
-  .modal-content h2 { margin-bottom: 16px; font-size: 16px; }
+  .modal-content { background: #111; border: 1px solid #333; border-radius: 10px;
+                   padding: 22px; max-width: 780px; width: 100%; max-height: 88vh; overflow-y: auto; }
+  .modal-content h2 { margin-bottom: 14px; font-size: 16px; }
   #toast { position: fixed; bottom: 24px; right: 24px; background: #111;
-           border: 1px solid #333; padding: 12px 20px; border-radius: 8px;
-           opacity: 0; transition: opacity .3s; font-size: 14px; }
+           border: 1px solid #333; padding: 12px 18px; border-radius: 8px;
+           opacity: 0; transition: opacity .3s; font-size: 14px; z-index: 999;
+           max-width: 340px; }
   #toast.show { opacity: 1; }
+  .repo-item { background: #161616; border: 1px solid #262626; padding: 10px 12px;
+               border-radius: 6px; cursor: pointer; margin-bottom: 6px; font-size: 13px;
+               display: flex; justify-content: space-between; align-items: center; }
+  .repo-item:hover { border-color: #444; }
+  .repo-item.selected { border-color: #22c55e; background: #0f1f14; }
+  .env-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .env-row input { flex: 1; }
+  .hint { font-size: 12px; color: #666; margin-bottom: 12px; line-height: 1.5; }
+  .step { background: #161616; border-left: 3px solid #22c55e; padding: 10px 14px;
+          margin-bottom: 14px; border-radius: 4px; font-size: 13px; }
+  .step b { color: #22c55e; }
 </style>
 </head>
 <body>
 
 <header>
   <h1>▲ Vercel Manager</h1>
-  <span id="userInfo" style="font-size:13px;color:#888"></span>
+  <div class="gh-box">
+    <span class="dot" id="ghDot"></span>
+    <span id="ghStatus">GitHub: not connected</span>
+    <button class="gh small" id="ghBtn" onclick="connectGitHub()">Connect GitHub</button>
+    <button class="small danger" id="ghDisconnect" style="display:none" onclick="disconnectGitHub()">Disconnect</button>
+    <span style="color:#555">|</span>
+    <span id="userInfo"></span>
+  </div>
 </header>
 
 <div class="tabs">
   <div class="tab active" data-tab="projects">Projects</div>
+  <div class="tab" data-tab="deploy">Deploy from GitHub</div>
   <div class="tab" data-tab="deployments">Deployments</div>
 </div>
 
@@ -76,10 +105,61 @@
         <option>nextjs</option><option>vite</option><option>create-react-app</option>
         <option>node</option><option>express</option><option>static</option>
       </select>
-      <button onclick="createProject()">+ Create Project</button>
+      <button onclick="createProject()">+ Create Empty Project</button>
       <button onclick="loadProjects()">↻ Refresh</button>
     </div>
     <div id="projectsList" class="loading">Loading...</div>
+  </div>
+
+  <!-- DEPLOY FROM GITHUB -->
+  <div class="panel" id="panel-deploy">
+    <div class="hint">
+      GitHub repo choose karo, branch select karo, env vars daalo — aur seedha Vercel par deploy ho jayega.
+    </div>
+    <div id="deployForm" style="display:none">
+      <div class="step">
+        <b>Step 1:</b> Repo select karo
+      </div>
+      <input id="repoSearch" placeholder="🔍 Search repos..." style="width:100%;margin-bottom:10px" oninput="filterRepos()" />
+      <div id="reposList" style="max-height:280px;overflow-y:auto;margin-bottom:16px"></div>
+
+      <div class="step">
+        <b>Step 2:</b> Project + branch + env
+      </div>
+      <div class="row">
+        <input id="depProjectName" placeholder="Vercel project name" style="flex:2" />
+        <select id="depBranch" style="flex:1">
+          <option value="">Select repo first</option>
+        </select>
+      </div>
+      <div class="row">
+        <input id="depRoot" placeholder="Root directory (optional, e.g. apps/web)" style="flex:1" />
+        <select id="depFramework" style="flex:1">
+          <option value="">Auto-detect framework</option>
+          <option>nextjs</option><option>vite</option><option>create-react-app</option>
+          <option>node</option><option>express</option><option>static</option>
+        </select>
+      </div>
+      <div class="row">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="depCreate" checked />
+          Vercel project create karo agar exist nahi karta
+        </label>
+      </div>
+
+      <div class="step">
+        <b>Step 3:</b> Environment variables (optional)
+      </div>
+      <div id="envRows"></div>
+      <button class="small" onclick="addEnvRow()" style="margin-bottom:16px">+ Add env var</button>
+
+      <div class="row">
+        <button class="gh" onclick="deployFromGitHub()" id="deployBtn">🚀 Deploy to Vercel</button>
+      </div>
+    </div>
+    <div id="deployNotConnected" class="empty">
+      GitHub connect karo pehle (upar right corner mein button hai)
+    </div>
   </div>
 
   <!-- DEPLOYMENTS -->
@@ -106,13 +186,16 @@
 
 <script>
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
 
+/* ---------------- UTILS ---------------- */
 function toast(msg, isError = false) {
   const t = $("#toast");
   t.textContent = msg;
-  t.style.borderColor = isError ? "#ef4444" : "#333";
+  t.style.borderColor = isError ? "#ef4444" : "#22c55e";
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 3000);
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 3500);
 }
 
 async function api(path, opts = {}) {
@@ -120,9 +203,14 @@ async function api(path, opts = {}) {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
 
 function openModal(title, html) {
@@ -132,27 +220,60 @@ function openModal(title, html) {
 }
 function closeModal() { $("#modal").classList.remove("open"); }
 
-// Tabs
-document.querySelectorAll(".tab").forEach(t => {
+/* ---------------- TABS ---------------- */
+$$(".tab").forEach(t => {
   t.onclick = () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-    document.querySelectorAll(".panel").forEach(x => x.classList.remove("active"));
+    $$(".tab").forEach(x => x.classList.remove("active"));
+    $$(".panel").forEach(x => x.classList.remove("active"));
     t.classList.add("active");
     $("#panel-" + t.dataset.tab).classList.add("active");
     if (t.dataset.tab === "projects") loadProjects();
     if (t.dataset.tab === "deployments") loadDeployments();
+    if (t.dataset.tab === "deploy") loadDeployPanel();
   };
 });
 
-// ---- USER ----
+/* ---------------- GITHUB ---------------- */
+async function checkGitHub() {
+  try {
+    const s = await api("/auth/github/status");
+    $("#ghDot").className = "dot" + (s.connected ? " on" : "");
+    if (s.connected) {
+      $("#ghStatus").textContent = `GitHub: @${s.user}`;
+      $("#ghBtn").style.display = "none";
+      $("#ghDisconnect").style.display = "inline-block";
+    } else {
+      $("#ghStatus").textContent = s.oauthConfigured
+        ? "GitHub: not connected"
+        : "GitHub OAuth not configured";
+      $("#ghBtn").style.display = "inline-block";
+      $("#ghDisconnect").style.display = "none";
+    }
+  } catch (e) { console.warn(e); }
+}
+
+function connectGitHub() {
+  window.location.href = "/auth/github";
+}
+
+async function disconnectGitHub() {
+  await api("/auth/github/disconnect", { method: "POST" });
+  toast("GitHub disconnected");
+  checkGitHub();
+  $("#reposList").innerHTML = "";
+  $("#deployForm").style.display = "none";
+  $("#deployNotConnected").style.display = "block";
+}
+
+/* ---------------- USER ---------------- */
 async function loadUser() {
   try {
     const u = await api("/api/me");
-    $("#userInfo").textContent = `${u.username || u.email || "user"}`;
+    $("#userInfo").textContent = `Vercel: ${u.username || u.email || "user"}`;
   } catch {}
 }
 
-// ---- PROJECTS ----
+/* ---------------- PROJECTS ---------------- */
 async function loadProjects() {
   const list = $("#projectsList");
   list.className = "loading";
@@ -161,17 +282,14 @@ async function loadProjects() {
     const projects = await api("/api/projects");
     if (!projects.length) {
       list.className = "empty";
-      list.textContent = "No projects yet. Create one above.";
+      list.textContent = "No projects yet. Create one above or deploy from GitHub.";
       return;
     }
     list.className = "";
     list.innerHTML = projects.map(p => `
       <div class="card">
         <h3>${escapeHtml(p.name)}</h3>
-        <div class="meta">
-          ${p.framework ? `Framework: ${p.framework} · ` : ""}
-          ID: ${p.id}
-        </div>
+        <div class="meta">${p.framework ? `Framework: ${p.framework} · ` : ""}ID: ${p.id}</div>
         <div class="actions">
           <button class="small" onclick="viewEnvVars('${p.id}','${escapeHtml(p.name)}')">Env Vars</button>
           <button class="small" onclick="viewDomains('${p.id}','${escapeHtml(p.name)}')">Domains</button>
@@ -201,7 +319,7 @@ async function createProject() {
 }
 
 async function deleteProject(id, name) {
-  if (!confirm(`Delete project "${name}"? This cannot be undone.`)) return;
+  if (!confirm(`Delete project "${name}"?`)) return;
   try {
     await api(`/api/projects/${id}`, { method: "DELETE" });
     toast("Project deleted");
@@ -209,7 +327,7 @@ async function deleteProject(id, name) {
   } catch (e) { toast(e.message, true); }
 }
 
-// ---- ENV VARS ----
+/* ---------------- ENV VARS ---------------- */
 async function viewEnvVars(projectId, name) {
   openModal(`Env Vars — ${name}`, `<div class="loading">Loading...</div>`);
   try {
@@ -258,7 +376,7 @@ async function deleteEnv(projectId, envId, name) {
   } catch (e) { toast(e.message, true); }
 }
 
-// ---- DOMAINS ----
+/* ---------------- DOMAINS ---------------- */
 async function viewDomains(projectId, name) {
   openModal(`Domains — ${name}`, `<div class="loading">Loading...</div>`);
   try {
@@ -305,7 +423,148 @@ async function removeDomain(projectId, domain, name) {
   } catch (e) { toast(e.message, true); }
 }
 
-// ---- DEPLOYMENTS ----
+/* ---------------- DEPLOY FROM GITHUB ---------------- */
+let allRepos = [];
+let selectedRepo = null;
+
+async function loadDeployPanel() {
+  const s = await api("/auth/github/status");
+  if (!s.connected) {
+    $("#deployForm").style.display = "none";
+    $("#deployNotConnected").style.display = "block";
+    return;
+  }
+  $("#deployNotConnected").style.display = "none";
+  $("#deployForm").style.display = "block";
+
+  if (!allRepos.length) {
+    $("#reposList").innerHTML = `<div class="loading">Loading repos...</div>`;
+    try {
+      allRepos = await api("/api/github/repos");
+      renderRepos(allRepos);
+    } catch (e) {
+      $("#reposList").innerHTML = `<div class="empty">${e.message}</div>`;
+    }
+  } else {
+    renderRepos(allRepos);
+  }
+}
+
+function renderRepos(repos) {
+  const list = $("#reposList");
+  if (!repos.length) {
+    list.innerHTML = `<div class="empty">No repos found</div>`;
+    return;
+  }
+  list.innerHTML = repos.map(r => `
+    <div class="repo-item ${selectedRepo?.full_name === r.full_name ? "selected" : ""}"
+         data-repo="${escapeHtml(r.full_name)}"
+         data-branch="${escapeHtml(r.default_branch)}"
+         data-name="${escapeHtml(r.name)}"
+         onclick="selectRepo(this)">
+      <div>
+        <b>${escapeHtml(r.full_name)}</b>
+        ${r.private ? '<span style="color:#f59e0b;font-size:11px;margin-left:6px">private</span>' : ''}
+      </div>
+      <span style="font-size:11px;color:#666">${escapeHtml(r.default_branch)}</span>
+    </div>
+  `).join("");
+}
+
+function filterRepos() {
+  const q = $("#repoSearch").value.toLowerCase();
+  renderRepos(allRepos.filter(r => r.full_name.toLowerCase().includes(q)));
+}
+
+async function selectRepo(el) {
+  const fullName = el.dataset.repo;
+  const defaultBranch = el.dataset.branch;
+  const repoName = el.dataset.name;
+  selectedRepo = { full_name: fullName, default_branch: defaultBranch, name: repoName };
+
+  $$(".repo-item").forEach(x => x.classList.remove("selected"));
+  el.classList.add("selected");
+
+  $("#depProjectName").value = repoName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+
+  const [owner, repo] = fullName.split("/");
+  const branchSel = $("#depBranch");
+  branchSel.innerHTML = `<option>Loading...</option>`;
+  try {
+    const branches = await api(`/api/github/repos/${owner}/${repo}/branches`);
+    branchSel.innerHTML = branches.map(b =>
+      `<option value="${escapeHtml(b.name)}" ${b.name === defaultBranch ? "selected" : ""}>${escapeHtml(b.name)}</option>`
+    ).join("");
+  } catch (e) {
+    branchSel.innerHTML = `<option value="${escapeHtml(defaultBranch)}">${escapeHtml(defaultBranch)}</option>`;
+  }
+}
+
+function addEnvRow() {
+  const div = document.createElement("div");
+  div.className = "env-row";
+  div.innerHTML = `
+    <input placeholder="KEY" class="env-key" />
+    <input placeholder="value" class="env-value" />
+    <button class="small danger" onclick="this.parentElement.remove()">×</button>
+  `;
+  $("#envRows").appendChild(div);
+}
+
+async function deployFromGitHub() {
+  if (!selectedRepo) return toast("Select a repo first", true);
+  const projectName = $("#depProjectName").value.trim();
+  const branch = $("#depBranch").value;
+  const rootDirectory = $("#depRoot").value.trim();
+  const framework = $("#depFramework").value;
+  const createProject = $("#depCreate").checked;
+
+  if (!projectName) return toast("Enter project name", true);
+  if (!branch) return toast("Select a branch", true);
+
+  const envVars = [...$$(".env-row")].map(row => ({
+    key: row.querySelector(".env-key").value.trim(),
+    value: row.querySelector(".env-value").value,
+  })).filter(e => e.key);
+
+  const btn = $("#deployBtn");
+  btn.disabled = true;
+  btn.textContent = "Deploying...";
+
+  try {
+    const res = await api("/api/deploy/from-github", {
+      method: "POST",
+      body: JSON.stringify({
+        projectName,
+        framework: framework || undefined,
+        repoFullName: selectedRepo.full_name,
+        branch,
+        rootDirectory: rootDirectory || undefined,
+        envVars,
+        createProject,
+      }),
+    });
+    toast(`Deploy started ✓ ${res.url || ""}`);
+    openModal("Deployment started", `
+      <div class="card">
+        <h3>Deployment ID</h3>
+        <div class="meta">${escapeHtml(res.deploymentId)}</div>
+        ${res.url ? `<div class="meta">URL: <a href="https://${res.url}" target="_blank">https://${res.url}</a></div>` : ""}
+        <div class="meta">Project ID: ${escapeHtml(res.projectId)}</div>
+      </div>
+      <p style="font-size:13px;color:#888">
+        Build logs dekhne ke liye "Deployments" tab mein jao.
+      </p>
+    `);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🚀 Deploy to Vercel";
+  }
+}
+
+/* ---------------- DEPLOYMENTS ---------------- */
 async function loadDeployments() {
   const list = $("#deploymentsList");
   list.className = "loading";
@@ -324,7 +583,7 @@ async function loadDeployments() {
         <div class="meta">
           <span class="badge ${d.state}">${d.state}</span>
           ${d.target || "preview"} · ${new Date(d.createdAt).toLocaleString()}
-          · ${d.url ? `<a href="https://${d.url}" target="_blank" style="color:#60a5fa">${d.url}</a>` : ""}
+          ${d.url ? `· <a href="https://${d.url}" target="_blank">${d.url}</a>` : ""}
         </div>
         <div class="actions">
           <button class="small" onclick="viewLogs('${d.uid}')">Logs</button>
@@ -363,14 +622,24 @@ async function viewLogs(id) {
   } catch (e) { openModal("Deployment Logs", `<div class="empty">${e.message}</div>`); }
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c =>
-    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-}
+/* ---------------- INIT ---------------- */
+(async () => {
+  loadUser();
+  loadProjects();
+  await checkGitHub();
 
-// Init
-loadUser();
-loadProjects();
+  // Auto show deploy panel if GitHub connected
+  const s = await api("/auth/github/status").catch(() => ({}));
+  if (s.connected) {
+    $("#deployNotConnected").style.display = "none";
+    $("#deployForm").style.display = "block";
+  }
+
+  // Check URL params
+  const params = new URLSearchParams(location.search);
+  if (params.get("gh") === "connected") toast("GitHub connected ✓");
+  if (params.get("gh") === "error") toast("GitHub connection failed", true);
+})();
 </script>
 </body>
 </html>
